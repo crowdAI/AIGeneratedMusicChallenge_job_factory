@@ -1,1 +1,1 @@
-REDIS_URL = 'redis://localhost:6379/2'
+REDIS_URL = 'redis://localhost:6379/3'
