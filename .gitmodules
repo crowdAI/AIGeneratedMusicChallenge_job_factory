@@ -1,0 +1,3 @@
+[submodule "criteo_starter_kit"]
+	path = criteo_starter_kit
+	url = git@github.com:spMohanty/crowdai-criteo-ad-placement-challenge-starter-kit.git
