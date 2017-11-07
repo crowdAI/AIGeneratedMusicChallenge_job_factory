@@ -10,23 +10,16 @@ import json
 import sys
 import random
 
-from sklearn.metrics import mean_squared_error, r2_score
 import numpy as np
 
 import requests
-import helpers
 import uuid
 import os
 
 import utils
 
-from criteo_starter_kit import compute_score
-
 POOL = redis.ConnectionPool(host=config.redis_host, port=config.redis_port, db=config.redis_db)
 
-
-def _obtain_presigned_url(filename, context):
-    return helpers.obtain_presigned_url(filename)
 
 def grade_submission(data, _context):
     file_key = data["file_key"]
@@ -41,6 +34,8 @@ def grade_submission(data, _context):
     _payload['challenge_client_name'] = config.challenge_id
     _payload['api_key'] = _context['api_key']
     _payload['grading_status'] = 'submitted'
+    #_payload['grading_status'] = 'failed'
+    #_payload['grading_message'] = "Example Error Message"
 
     print "Making POST request...."
     r = requests.post(config.CROWDAI_GRADER_URL, params=_payload, headers=headers, verify=False)
@@ -49,6 +44,7 @@ def grade_submission(data, _context):
         data = json.loads(r.text)
         submission_id = str(data['submission_id'])
         _context['redis_conn'].set(config.challenge_id+"::submissions::"+submission_id, json.dumps(_payload))
+	_context['redis_conn'].lpush(config.challenge_id+"::enqueued_submissions", "{}".format(submission_id))
         _update_job_event(_context, job_info_template(_context, "Docker Container enqueued for grading. Your submission_id is {}.".format(submission_id)))
         _meta['submission_id'] = submission_id
         _update_job_event(_context, job_complete_template(_context, _meta))
