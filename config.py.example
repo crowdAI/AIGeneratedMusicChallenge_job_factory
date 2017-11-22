@@ -1,9 +1,19 @@
 class Config:
+    challenge_id = "AIGeneratedMusicChallenge"
     redis_host = "localhost"
     redis_port = 6379
-    redis_password ="YOUR_REDIS_PASSWORD"
+    redis_password = False
     redis_db = 4
-    challenge_id = "AIGeneratedMusicChallenge"
+    api_service_port = 9271
     redis_namespace = challenge_id
-    CROWDAI_TOKEN= "YOUR-CROWDAI-TOKEN-GRADER-TOKEN-HERE"
-    CROWDAI_GRADER_URL = "YOUR-CROWDAI-GRADER-URL"
+    CROWDAI_TOKEN="YOUR-CROWDAI-TOKEN"
+    CROWDAI_GRADER_URL = "CROWDAI-GRADER-URL"
+
+    AWS_S3_BUCKET = " "
+    S3_UPLOAD_PATH = " "
+    AWS_ACCESS_KEY_ID = " "
+    AWS_SECRET_ACCESS_KEY = " "
+
+    TEMP_STORAGE_DIRECTORY_PATH = "temp/"
+
+    DEBUG_MODE=True

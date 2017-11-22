@@ -6,6 +6,7 @@ import redis
 from rq import get_current_job
 import json
 import requests
+from midi_helpers import post_process_midi
 
 POOL = redis.ConnectionPool(
     host=config.redis_host, port=config.redis_port, db=config.redis_db)
@@ -17,7 +18,10 @@ def grade_submission(data, _context):
     _update_job_event(
         _context,
         job_info_template(
-            _context, "Enqueing Docker container for grading...."))
+            _context, "Validating MIDI file...."))
+
+    # TODO: Add validation of MIDI file here
+    post_process_midi(_context, POOL, file_key)
 
     headers = {
         'Authorization': 'Token token='+config.CROWDAI_TOKEN,
