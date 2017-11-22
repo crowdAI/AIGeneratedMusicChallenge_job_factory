@@ -1,5 +1,5 @@
 ![CrowdAI-Logo](https://github.com/crowdAI/crowdai/raw/master/app/assets/images/misc/crowdai-logo-smile.svg?sanitize=true)
-# AIGenerateMusicChallenge_job_factory
+# AIGeneratedMusicChallenge_job_factory
 
 Implementation of a CrowdAI Job Factory for the [AI Generated Music Challenge](https://www.crowdai.org/challenges/ai-generated-music-challenge) on [CrowdAI](https://www.crowdai.org)
 

@@ -1,6 +1,7 @@
 class Config:
     redis_host = "localhost"
     redis_port = 6379
+    redis_password ="YOUR_REDIS_PASSWORD"
     redis_db = 4
     challenge_id = "AIGeneratedMusicChallenge"
     redis_namespace = challenge_id
