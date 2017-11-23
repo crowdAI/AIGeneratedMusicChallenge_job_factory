@@ -1,3 +1,6 @@
-REDIS_HOST = 'localhost'
-REDIS_PORT = 6379
-REDIS_DB = 4
+from config import Config as config
+REDIS_HOST = config.redis_host
+REDIS_PORT = config.redis_port
+if config.redis_password:
+    REDIS_PASSWORD = config.redis_password
+REDIS_DB = config.redis_db
