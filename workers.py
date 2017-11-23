@@ -58,9 +58,9 @@ def grade_submission(data, _context):
     _meta = {}
     _meta['file_key'] = file_key
     processed_filekeys = converted_filekeys
-    processed_filekeys = ["{}/{}".format(
-            config.S3_UPLOAD_PATH, x
-            ) for x in processed_filekeys]
+    # processed_filekeys = ["{}/{}".format(
+    #         config.S3_UPLOAD_PATH, x
+    #         ) for x in processed_filekeys]
     _meta['processed_filekeys'] = json.dumps(processed_filekeys)
     _payload['meta'] = _meta
     _payload['score'] = config.SCORE_DEFAULT
