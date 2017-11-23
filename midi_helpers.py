@@ -230,8 +230,35 @@ def upload_processed_files_to_s3(_context, local_directory_path, pruned_filekey)
             )
 
 
-def register_submission_on_redis(redis_pool, pruned_filekey, split_file_keys):
+def register_submission_on_redis(
+                _context,
+                redis_pool,
+                submission_id,
+                pruned_filekey,
+                split_file_keys
+                ):
     redis_conn = redis.Redis(connection_pool=redis_pool)
+    def _query(s):
+        return "{}::{}".format(config.redis_namespace, s)
+    # Map submission_id to pruned_filekey
+    redis_conn.hset(
+        _query("submission_to_key_map"),
+        submission_id,
+        pruned_filekey)
+
+    # Map pruned_filekey to submission_id
+    redis_conn.hset(
+        _query("key_to_submission_map"),
+        pruned_filekey,
+        submission_id)
+
+    # Store submission to filekey mappings
+    redis_conn.set(
+        _query(
+            "split_files::{}".format(submission_id)
+            ),
+        json.dumps(split_file_keys))
+
 
 
 def post_process_midi(_context, redis_pool, filekey):
@@ -304,4 +331,4 @@ def post_process_midi(_context, redis_pool, filekey):
     shutil.rmtree(local_directory_path)
     # Add relevant entries in redis queues
 
-    return converted_filekeys
+    return pruned_filekey, converted_filekeys

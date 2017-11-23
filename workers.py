@@ -7,65 +7,101 @@ from rq import get_current_job
 import json
 import requests
 from midi_helpers import post_process_midi, _update_job_event
+from midi_helpers import register_submission_on_redis
+
+import uuid
 
 POOL = redis.ConnectionPool(
     host=config.redis_host, port=config.redis_port, db=config.redis_db)
 
+def report_to_crowdai(_context, status, _payload):
+    if config.DEBUG_MODE:
+        return str(uuid.uuid4())
+
+    headers = {
+        'Authorization': 'Token token='+config.CROWDAI_TOKEN,
+        "Content-Type": "application/vnd.api+json"
+        }
+    _payload['challenge_client_name'] = config.challenge_id
+    _payload['api_key'] = _context['api_key']
+    _payload['grading_status'] = status
+    print "Making POST request...."
+    r = requests.post(
+        config.CROWDAI_GRADER_URL,
+        params=_payload, headers=headers, verify=False)
+
+    if r.status_code == 202:
+        data = json.loads(r.text)
+        submission_id = str(data['submission_id'])
+        return submission_id
+    else:
+        print r.text
+        print r.status_code
+        raise Exception("""
+            Unable to register submission on crowdAI.
+            Please contact the admins.""")
 
 def grade_submission(data, _context):
     file_key = data["file_key"]
-    # Start the download of the file locally to the temp folder
+
     _update_job_event(
         _context,
         job_info_template(
             _context, "Post Processing  MIDI file...."))
 
-    converted_filekeys = post_process_midi(
-                        _context,
-                        POOL,
-                        file_key
-                        )
+    pruned_filekey, converted_filekeys = post_process_midi(
+                                            _context,
+                                            POOL,
+                                            file_key
+                                            )
+    _payload = {}
+    _meta = {}
+    _meta['file_key'] = file_key
+    processed_filekeys = converted_filekeys
+    processed_filekeys = ["{}/{}".format(
+            config.S3_UPLOAD_PATH, x
+            ) for x in processed_filekeys]
+    _meta['processed_filekeys'] = json.dumps(processed_filekeys)
+    _payload['meta'] = _meta
+    _payload['score'] = config.SCORE_DEFAULT
+    _payload['score_secondary'] = config.SCORE_SECONDARY_DEFAULT
 
+    submission_id = report_to_crowdai(
+                    _context,
+                    'graded',
+                    _payload
+                    )
+    register_submission_on_redis(
+        _context,
+        POOL,
+        submission_id,
+        pruned_filekey,
+        processed_filekeys
+        )
 
-    # headers = {
-    #     'Authorization': 'Token token='+config.CROWDAI_TOKEN,
-    #     "Content-Type": "application/vnd.api+json"
-    #     }
-    # _meta = {}
-    # _meta["file_key"] = file_key
-    # _payload = {}
-    # _payload["meta"] = json.dumps(_meta)
-    # _payload['challenge_client_name'] = config.challenge_id
-    # _payload['api_key'] = _context['api_key']
-    # _payload['grading_status'] = 'submitted'
-    # print "Making POST request...."
-    #
-    # r = requests.post(
-    #     config.CROWDAI_GRADER_URL,
-    #     params=_payload, headers=headers, verify=False)
-    # print "Status Code : ", r.status_code
-    # if r.status_code == 202:
-    #     data = json.loads(r.text)
-    #     submission_id = str(data['submission_id'])
-    #     _context['redis_conn'].set(
-    #         config.challenge_id+"::submissions::"+submission_id,
-    #         json.dumps(_payload))
-    #
-    #     _context['redis_conn'].lpush(
-    #         config.challenge_id+"::enqueued_submissions",
-    #         "{}".format(submission_id))
-    #
-    #     _update_job_event(
-    #         _context,
-    #         job_info_template(
-    #             _context,
-    #             "MESSAGE HERE {}.".format(submission_id)))
-    #     _meta['submission_id'] = submission_id
-    # else:
-    #     raise Exception(r.text)
-    _meta = {'result': 'success'}
-    _update_job_event(_context, job_complete_template(_context, _meta))
+    message_for_participants = """
+    Score (mu) : {}
+    Secondary_score (sigma) : {}
+    Please note that these scores are only the initial scores,
+    and they will change over time as your submission is
+    evaluated by the human volunteers.
+    """.format(_payload['score'], _payload['score_secondary'])
 
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, message_for_participants))
+
+    result = {'result': 'submission recorded'}
+    result['score_mu'] = _payload['score']
+    result['score_sigma'] = _payload['score_secondary']
+    _update_job_event(
+        _context,
+        job_complete_template(
+            _context,
+            result
+            )
+        )
 
 def job_execution_wrapper(data):
     redis_conn = redis.Redis(connection_pool=POOL)
