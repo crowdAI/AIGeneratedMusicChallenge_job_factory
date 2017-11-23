@@ -15,8 +15,12 @@ from config import Config as config
 app = Flask(__name__)
 CORS(app)
 
-POOL = redis.ConnectionPool(
-    host=config.redis_host, port=config.redis_port, db=config.redis_db)
+if config.redis_password:
+        POOL = redis.ConnectionPool(
+            host=config.redis_host, port=config.redis_port, db=config.redis_db, password=config.redis_password)
+else:
+        POOL = redis.ConnectionPool(
+            host=config.redis_host, port=config.redis_port, db=config.redis_db)
 
 def _query(s):
     return "{}::{}".format(config.redis_namespace, s)

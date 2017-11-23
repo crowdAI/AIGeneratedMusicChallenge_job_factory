@@ -23,8 +23,14 @@ def signal_handler(signal, frame):
 signal.signal(signal.SIGINT, signal_handler)
 
 
-POOL = redis.ConnectionPool(
-    host=config.redis_host, port=config.redis_port, db=config.redis_db)
+if not config.redis_password:
+	POOL = redis.ConnectionPool(
+	    host=config.redis_host, port=config.redis_port, db=config.redis_db)
+else:
+	POOL = redis.ConnectionPool(
+	    host=config.redis_host, port=config.redis_port, db=config.redis_db, password=config.redis_password)
+
+
 r = redis.Redis(connection_pool=POOL)
 JOB_QUEUE = Queue(connection=r)
 

@@ -11,8 +11,12 @@ from midi_helpers import register_submission_on_redis
 
 import uuid
 
-POOL = redis.ConnectionPool(
-    host=config.redis_host, port=config.redis_port, db=config.redis_db)
+if config.redis_password:
+	POOL = redis.ConnectionPool(
+	    host=config.redis_host, port=config.redis_port, db=config.redis_db, password=config.redis_password)
+else:
+	POOL = redis.ConnectionPool(
+	    host=config.redis_host, port=config.redis_port, db=config.redis_db)
 
 def report_to_crowdai(_context, status, _payload):
     if config.DEBUG_MODE:
