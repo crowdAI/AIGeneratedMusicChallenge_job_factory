@@ -110,7 +110,6 @@ def split_midi_into_chunks(_context, midifile, track_length, target_directory):
             """
                 Report progress with a probability of 5%
             """
-            print "Processed {}%".format(cumulative_time*1.0/track_length * 100)
             progress_step_offset = 0
             progress_step_weight = 0.33
             percent_complete = (cumulative_time * 1.0 / track_length) * 100
@@ -138,7 +137,6 @@ def split_midi_into_chunks(_context, midifile, track_length, target_directory):
         job_info_template(
             _context, "Saving split chunks..."))
 
-    print "Saving Split midi files...."
     split_file_paths = []
     split_length_sum = 0
     # Write split files into target_directory
@@ -152,7 +150,6 @@ def split_midi_into_chunks(_context, midifile, track_length, target_directory):
             str(uuid.uuid4())
             )
         _m.save(target_file_path)
-        print "Saved split midi file : ", target_file_path
         split_file_paths.append(target_file_path)
         progress_step_offset = 33
         progress_step_weight = 0.25
@@ -163,7 +160,6 @@ def split_midi_into_chunks(_context, midifile, track_length, target_directory):
             )
 
 
-    print "Total length : ", track_length, " Split lenght sum : ", split_length_sum
     return split_file_paths
 
 def convert_midi_files_to_json(_context, filelist, pruned_filekey):
@@ -181,8 +177,6 @@ def convert_midi_files_to_json(_context, filelist, pruned_filekey):
         f = open(new_filepath, "w")
         f.write(json.dumps(_d))
         f.close()
-        print "Writing JSON file....", _file
-        print "Cleaning up old file..."
         os.remove(_file)
         if not new_filepath.endswith("submission.json"):
             converted_files.append(
@@ -227,8 +221,6 @@ def upload_processed_files_to_s3(_context, local_directory_path, pruned_filekey)
             Key=file_key,
             Body=open(_file).read()
         )
-        print resp
-        print "Uploaded ", _file
         progress_step_offset = 33 + 25 + 12
         progress_step_weight = (100 - (33 + 25 + 12))/100.0
         percent_complete = (_idx * 1.0 / len(files)) * 100
