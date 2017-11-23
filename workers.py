@@ -23,43 +23,44 @@ def grade_submission(data, _context):
     # TODO: Add validation of MIDI file here
     post_process_midi(_context, POOL, file_key)
 
-    headers = {
-        'Authorization': 'Token token='+config.CROWDAI_TOKEN,
-        "Content-Type": "application/vnd.api+json"
-        }
-    _meta = {}
-    _meta["file_key"] = file_key
-    _payload = {}
-    _payload["meta"] = json.dumps(_meta)
-    _payload['challenge_client_name'] = config.challenge_id
-    _payload['api_key'] = _context['api_key']
-    _payload['grading_status'] = 'submitted'
-    print "Making POST request...."
-
-    r = requests.post(
-        config.CROWDAI_GRADER_URL,
-        params=_payload, headers=headers, verify=False)
-    print "Status Code : ", r.status_code
-    if r.status_code == 202:
-        data = json.loads(r.text)
-        submission_id = str(data['submission_id'])
-        _context['redis_conn'].set(
-            config.challenge_id+"::submissions::"+submission_id,
-            json.dumps(_payload))
-
-        _context['redis_conn'].lpush(
-            config.challenge_id+"::enqueued_submissions",
-            "{}".format(submission_id))
-
-        _update_job_event(
-            _context,
-            job_info_template(
-                _context,
-                "MESSAGE HERE {}.".format(submission_id)))
-        _meta['submission_id'] = submission_id
-        _update_job_event(_context, job_complete_template(_context, _meta))
-    else:
-        raise Exception(r.text)
+    # headers = {
+    #     'Authorization': 'Token token='+config.CROWDAI_TOKEN,
+    #     "Content-Type": "application/vnd.api+json"
+    #     }
+    # _meta = {}
+    # _meta["file_key"] = file_key
+    # _payload = {}
+    # _payload["meta"] = json.dumps(_meta)
+    # _payload['challenge_client_name'] = config.challenge_id
+    # _payload['api_key'] = _context['api_key']
+    # _payload['grading_status'] = 'submitted'
+    # print "Making POST request...."
+    #
+    # r = requests.post(
+    #     config.CROWDAI_GRADER_URL,
+    #     params=_payload, headers=headers, verify=False)
+    # print "Status Code : ", r.status_code
+    # if r.status_code == 202:
+    #     data = json.loads(r.text)
+    #     submission_id = str(data['submission_id'])
+    #     _context['redis_conn'].set(
+    #         config.challenge_id+"::submissions::"+submission_id,
+    #         json.dumps(_payload))
+    #
+    #     _context['redis_conn'].lpush(
+    #         config.challenge_id+"::enqueued_submissions",
+    #         "{}".format(submission_id))
+    #
+    #     _update_job_event(
+    #         _context,
+    #         job_info_template(
+    #             _context,
+    #             "MESSAGE HERE {}.".format(submission_id)))
+    #     _meta['submission_id'] = submission_id
+    # else:
+    #     raise Exception(r.text)
+    _meta = {'result': 'success'}
+    _update_job_event(_context, job_complete_template(_context, _meta))
 
 
 def _update_job_event(_context, data):
