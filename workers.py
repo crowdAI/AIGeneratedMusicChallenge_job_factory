@@ -41,6 +41,19 @@ def report_to_crowdai(_context, status, _payload):
             Unable to register submission on crowdAI.
             Please contact the admins.""")
 
+
+# _context = {}
+# _context["api_key"] = "568dc6090ce53d48f84fd47cbde91e1e"
+# _payload = {}
+# _payload['score'] = 25
+# _payload['score_secondary'] = 8.33
+# submission_id = report_to_crowdai(
+#                 _context,
+#                 'graded',
+#                 _payload
+#                 )
+# print submission_id
+
 def grade_submission(data, _context):
     file_key = data["file_key"]
 
@@ -58,9 +71,6 @@ def grade_submission(data, _context):
     _meta = {}
     _meta['file_key'] = file_key
     processed_filekeys = converted_filekeys
-    # processed_filekeys = ["{}/{}".format(
-    #         config.S3_UPLOAD_PATH, x
-    #         ) for x in processed_filekeys]
     _meta['processed_filekeys'] = json.dumps(processed_filekeys)
     _payload['meta'] = _meta
     _payload['score'] = config.SCORE_DEFAULT

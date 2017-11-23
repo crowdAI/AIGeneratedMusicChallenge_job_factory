@@ -6,6 +6,9 @@ import random
 import json
 import uuid
 import trueskill
+import requests
+from trueskill.backends import cdf
+import math
 
 from config import Config as config
 
@@ -92,35 +95,85 @@ def parse_rating(score):
         score = _
     return score
 
-def get_submission_score(submission_id):
+def get_submission_score(submission_id, _idx=False):
+    _key = "submission_scores"
+    if _idx:
+        """
+            Granular mode. Where we also try to compute the true skill of
+            all individual clips
+        """
+        _key += "___granular"
+        submission_id += "___" + str(_idx)
     redis_conn = redis.Redis(connection_pool=POOL)
     score = redis_conn.hget(
-        _query("submission_scores"),
+        _query(_key),
         submission_id
     )
     return parse_rating(score)
 
+def report(submission_id, _payload=False):
+    print("Reporting payload for submission_id {}".format(submission_id))
+    print(_payload)
+    headers = {'Authorization' : 'Token token='+config.CROWDAI_TOKEN , "Content-Type":"application/vnd.api+json"}
+    r = requests.patch("{}/{}".format(
+                            config.CROWDAI_GRADER_URL,
+                            submission_id
+                        ),
+                        params=_payload,
+                        headers=headers,
+                        verify=False)
+    if r.status_code != 202:
+        print "ERROR :("
+        print(r.text)
+        print(r.status_code)
+        #raise Exception("Unusual behaviour in crowdAI API")
 
-def update_submission_score(submission_id, score):
+def update_submission_score(submission_id, score, _idx=False):
+    submission_score_key = "submission_scores"
+    submission_count_key = "submission_match_counts"
+    if _idx:
+        """
+            Granular mode. Where we also try to compute the true skill of
+            all individual clips
+        """
+        submission_score_key += "___granular"
+        submission_count_key += "___granular"
+        submission_id += "___" + str(_idx)
+
     redis_conn = redis.Redis(connection_pool=POOL)
     _score = {}
     _score['mu'] = score.mu
     _score['sigma'] = score.sigma
     score_string = json.dumps(_score)
-    score = redis_conn.hset(
-        _query("submission_scores"),
+
+    redis_conn.hset(
+        _query(submission_score_key),
         submission_id,
         score_string
     )
 
     # Increase submission_id match count
-    redis_conn.hincrby(
-        _query("submission_match_counts"),
+    updated_count = redis_conn.hincrby(
+        _query(submission_count_key),
         submission_id,
         1
     )
 
-    # TODO Add interaction with crowdAI here
+    if not _idx:
+        _payload = {}
+        _payload['score'] = score.mu
+        _payload['score_secondary'] = score.sigma
+        _payload['grading_status'] = 'graded'
+        _payload['challenge_client_name'] = config.challenge_id
+        _message = "mu: {} ; sigma: {}; comparisons: {}".format(
+                        score.mu,
+                        score.sigma,
+                        updated_count
+                        )
+        _payload['grading_message'] = _message
+        if not config.DEBUG_MODE:
+            report(submission_id, _payload)
+
 
 @app.route('/match/<match_id>', methods=['POST'])
 def match_result(match_id):
@@ -136,6 +189,8 @@ def match_result(match_id):
         match = json.loads(match)
         submission_1 = match['submission_1']
         submission_2 = match['submission_2']
+        submission_1_idx = match['candidate_1_idx']
+        submission_2_idx = match['candidate_2_idx']
 
         submission_1_score = get_submission_score(submission_1)
         submission_2_score = get_submission_score(submission_2)
@@ -155,7 +210,50 @@ def match_result(match_id):
 
         update_submission_score(submission_1, n_sub_1_score)
         update_submission_score(submission_2, n_sub_2_score)
-        return jsonify({'result':'SUCCESS', 'message': 'Scores updated'})
+
+
+        """
+            Also compute the individual score for individual snippets
+        """
+        granular_submission_1_score = get_submission_score(submission_1, _idx=submission_1_idx)
+        granular_submission_2_score = get_submission_score(submission_2, _idx=submission_2_idx)
+
+        def Pwin(rA=trueskill.Rating(), rB=trueskill.Rating()):
+            deltaMu = rA.mu - rB.mu
+            rsss = math.sqrt(rA.sigma**2 + rB.sigma**2)
+            _prob = cdf(deltaMu/rsss)
+            print _prob
+            return _prob
+        if winner == 0:
+            n_sub_1_granular_score, n_sub_2_granular_score = \
+                        trueskill.rate_1vs1(
+                            granular_submission_1_score,
+                            granular_submission_2_score
+                            )
+            probability_of_win = Pwin(
+                                granular_submission_1_score,
+                                granular_submission_2_score
+                                )
+        else:
+            n_sub_2_granular_score, n_sub_1_granular_score = \
+                        trueskill.rate_1vs1(
+                            granular_submission_2_score,
+                            granular_submission_1_score
+                            )
+            probability_of_win = Pwin(
+                                granular_submission_1_score,
+                                granular_submission_2_score
+                                )
+
+        update_submission_score(submission_1, n_sub_1_score, _idx=submission_1_idx)
+        update_submission_score(submission_2, n_sub_2_score, _idx=submission_2_idx)
+
+        return jsonify(
+                    {
+                        'result':'SUCCESS',
+                        'message': 'Scores updated',
+                        'prob_win': "{0:.2f}% ".format(probability_of_win*100)
+                    })
     else:
         return jsonify({'result': 'ERROR', 'message':'invalid match_id'})
     print match
