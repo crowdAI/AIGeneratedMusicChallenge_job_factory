@@ -248,6 +248,11 @@ def match_result(match_id):
         update_submission_score(submission_1, n_sub_1_score, _idx=submission_1_idx)
         update_submission_score(submission_2, n_sub_2_score, _idx=submission_2_idx)
 
+        # Delete match_hash
+        match = redis_conn.delete(
+            _query("match::"+match_id)
+            )
+
         return jsonify(
                     {
                         'result':'SUCCESS',
