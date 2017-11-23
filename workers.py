@@ -6,7 +6,7 @@ import redis
 from rq import get_current_job
 import json
 import requests
-from midi_helpers import post_process_midi
+from midi_helpers import post_process_midi, _update_job_event
 
 POOL = redis.ConnectionPool(
     host=config.redis_host, port=config.redis_port, db=config.redis_db)
@@ -18,10 +18,14 @@ def grade_submission(data, _context):
     _update_job_event(
         _context,
         job_info_template(
-            _context, "Validating MIDI file...."))
+            _context, "Post Processing  MIDI file...."))
 
-    # TODO: Add validation of MIDI file here
-    post_process_midi(_context, POOL, file_key)
+    converted_filekeys = post_process_midi(
+                        _context,
+                        POOL,
+                        file_key
+                        )
+
 
     # headers = {
     #     'Authorization': 'Token token='+config.CROWDAI_TOKEN,
@@ -61,18 +65,6 @@ def grade_submission(data, _context):
     #     raise Exception(r.text)
     _meta = {'result': 'success'}
     _update_job_event(_context, job_complete_template(_context, _meta))
-
-
-def _update_job_event(_context, data):
-    """
-        Helper function to serialize JSON
-        and make sure redis doesnt messup JSON validation
-    """
-    redis_conn = _context['redis_conn']
-    response_channel = _context['response_channel']
-    data['data_sequence_no'] = _context['data_sequence_no']
-
-    redis_conn.rpush(response_channel, json.dumps(data))
 
 
 def job_execution_wrapper(data):

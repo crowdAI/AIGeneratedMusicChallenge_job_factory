@@ -7,11 +7,27 @@ import json
 import base64
 import glob
 import shutil
+import redis
+from utils import job_info_template, job_complete_template
+from utils import job_error_template, job_running_template
+from utils import update_progress
+import random
 
 """
 Constants
 """
 DEFAULT_MIDI_TEMPO = 500000  # 120 beats per minute
+
+def _update_job_event(_context, data):
+    """
+        Helper function to serialize JSON
+        and make sure redis doesnt messup JSON validation
+    """
+    redis_conn = _context['redis_conn']
+    response_channel = _context['response_channel']
+    data['data_sequence_no'] = _context['data_sequence_no']
+
+    redis_conn.rpush(response_channel, json.dumps(data))
 
 
 def get_boto_client():
@@ -49,7 +65,7 @@ def download_midi(_context, filekey):
     return local_directory_path, local_filepath
 
 
-def load_and_validate_midi(filepath):
+def load_and_validate_midi(_context, filepath):
     midi = mido.MidiFile(filepath)
     length = midi.length
     ticks_per_beat = midi.ticks_per_beat
@@ -73,7 +89,7 @@ def load_and_validate_midi(filepath):
     return midi, length
 
 
-def split_midi_into_chunks(midifile, track_length, target_directory):
+def split_midi_into_chunks(_context, midifile, track_length, target_directory):
     cumulative_ticks = 0
     cumulative_time = 0
     relative_time = 0
@@ -89,7 +105,19 @@ def split_midi_into_chunks(midifile, track_length, target_directory):
                     midifile.ticks_per_beat,
                     DEFAULT_MIDI_TEMPO
                     )
-        print "Processed {}%".format(cumulative_time*1.0/track_length * 100)
+
+        if random.randint(0, 100) < 5:
+            """
+                Report progress with a probability of 5%
+            """
+            print "Processed {}%".format(cumulative_time*1.0/track_length * 100)
+            progress_step_offset = 0
+            progress_step_weight = 0.33
+            percent_complete = (cumulative_time * 1.0 / track_length) * 100
+            update_progress(
+                _context,
+                (progress_step_offset + (progress_step_weight * percent_complete))
+                )
 
         cumulative_time += delta_s
         relative_time += delta_s
@@ -104,6 +132,11 @@ def split_midi_into_chunks(midifile, track_length, target_directory):
         if relative_time >= (track_length*1.0/config.MIDI_NUM_SPLITS):
             relative_time = 0
             track_index += 1
+
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, "Saving split chunks..."))
 
     print "Saving Split midi files...."
     split_file_paths = []
@@ -121,11 +154,20 @@ def split_midi_into_chunks(midifile, track_length, target_directory):
         _m.save(target_file_path)
         print "Saved split midi file : ", target_file_path
         split_file_paths.append(target_file_path)
+        progress_step_offset = 33
+        progress_step_weight = 0.25
+        percent_complete = (_idx * 1.0 / len(SPLITS)) * 100
+        update_progress(
+            _context,
+            (progress_step_offset + (progress_step_weight * percent_complete))
+            )
+
 
     print "Total length : ", track_length, " Split lenght sum : ", split_length_sum
     return split_file_paths
 
-def convert_midi_files_to_json(filelist, pruned_filekey):
+def convert_midi_files_to_json(_context, filelist, pruned_filekey):
+    converted_files = []
     for _idx, _file in enumerate(filelist):
         f = open(_file, "r")
         data = f.read()
@@ -142,6 +184,25 @@ def convert_midi_files_to_json(filelist, pruned_filekey):
         print "Writing JSON file....", _file
         print "Cleaning up old file..."
         os.remove(_file)
+        if not new_filepath.endswith("submission.json"):
+            converted_files.append(
+                new_filepath.replace(
+                    config.TEMP_STORAGE_DIRECTORY_PATH, "")
+                    )
+
+        progress_step_offset = 33 + 25
+        progress_step_weight = 0.12
+        percent_complete = (_idx * 1.0 / len(filelist)) * 100
+        update_progress(
+            _context,
+            (progress_step_offset + (progress_step_weight * percent_complete))
+            )
+
+    """
+    These filekeys are relative to the `S3_UPLOAD_PATH` in the bucket
+    and the first item of the returned array is the main submission file.
+    """
+    return [pruned_filekey+'/submission.json'] + converted_files
 
 
 def upload_processed_files_to_s3(_context, local_directory_path, pruned_filekey):
@@ -156,7 +217,8 @@ def upload_processed_files_to_s3(_context, local_directory_path, pruned_filekey)
         Key=directory_key
     )
 
-    for _file in glob.glob(local_directory_path+"/*"):
+    files = glob.glob(local_directory_path+"/*")
+    for _idx, _file in enumerate(files):
         filename = _file.split("/")[-1]
         file_key = directory_key + filename
         resp = s3.put_object(
@@ -167,28 +229,87 @@ def upload_processed_files_to_s3(_context, local_directory_path, pruned_filekey)
         )
         print resp
         print "Uploaded ", _file
+        progress_step_offset = 33 + 25 + 12
+        progress_step_weight = (100 - (33 + 25 + 12))/100.0
+        percent_complete = (_idx * 1.0 / len(files)) * 100
+        update_progress(
+            _context,
+            (progress_step_offset + (progress_step_weight * percent_complete))
+            )
+
+
+def register_submission_on_redis(redis_pool, pruned_filekey, split_file_keys):
+    redis_conn = redis.Redis(connection_pool=redis_pool)
 
 
 def post_process_midi(_context, redis_pool, filekey):
     """
         Helper file to post process midi file
     """
-
     local_directory_path, local_filepath = download_midi(_context, filekey)
+
+    """
     # Load and validate midi file
-    midi, track_length = load_and_validate_midi(local_filepath)
+    """
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, "Validating MIDI file..."))
+
+    midi, track_length = load_and_validate_midi(_context, local_filepath)
+
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, "MIDI file validated..."))
+
+    """
     # Split midi file into NUMBER_OF_PARTS (180)
+    """
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, "Splitting file into 120 chunks of ~30 seconds each..."))
+
     split_file_paths = split_midi_into_chunks(
+        _context,
         midi,
         track_length,
         local_directory_path
         )
+
+    """
     # Convert midi files to dataURI
+    """
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, "Encoding individual chunks..."))
     pruned_filekey = filekey.split("/")[-1]
-    convert_midi_files_to_json([local_filepath]+split_file_paths, pruned_filekey)
+    converted_filekeys = convert_midi_files_to_json(
+                    _context,
+                    [local_filepath]+split_file_paths,
+                    pruned_filekey
+                    )
+
+    """
     # Upload to target directory on S3
+    """
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, "Saving encoded chunks..."))
     upload_processed_files_to_s3(_context, local_directory_path, pruned_filekey)
+
+    """
     # Clean up
+    """
+    _update_job_event(
+        _context,
+        job_info_template(
+            _context, "Cleaning up..."))
+
     shutil.rmtree(local_directory_path)
     # Add relevant entries in redis queues
-    # TODO
+
+    return converted_filekeys
