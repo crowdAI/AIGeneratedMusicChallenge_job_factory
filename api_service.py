@@ -271,7 +271,7 @@ def match_result(match_id):
     print content
     return jsonify({'match_id': match_id})
 
-
+application = app
 if __name__ == '__main__':
     app.run(host='0.0.0.0',
             port=config.api_service_port,
