@@ -190,6 +190,13 @@ def match_result(match_id):
 
     match = redis_conn.get(
                     _query("match::"+match_id))
+
+    def Pwin(rA=trueskill.Rating(), rB=trueskill.Rating()):
+        deltaMu = rA.mu - rB.mu
+        rsss = math.sqrt(rA.sigma**2 + rB.sigma**2)
+        _prob = cdf(deltaMu/rsss)
+        return _prob
+
     if match:
         match = json.loads(match)
         submission_1 = match['submission_1']
@@ -206,12 +213,20 @@ def match_result(match_id):
                             submission_1_score,
                             submission_2_score
                             )
+            probability_of_win = Pwin(
+                                submission_1_score,
+                                submission_2_score
+                                )
         else:
             n_sub_2_score, n_sub_1_score = \
                         trueskill.rate_1vs1(
                             submission_2_score,
                             submission_1_score
                             )
+            probability_of_win = Pwin(
+                                submission_1_score,
+                                submission_2_score
+                                )
 
         update_submission_score(submission_1, n_sub_1_score)
         update_submission_score(submission_2, n_sub_2_score)
@@ -223,32 +238,18 @@ def match_result(match_id):
         granular_submission_1_score = get_submission_score(submission_1, _idx=submission_1_idx)
         granular_submission_2_score = get_submission_score(submission_2, _idx=submission_2_idx)
 
-        def Pwin(rA=trueskill.Rating(), rB=trueskill.Rating()):
-            deltaMu = rA.mu - rB.mu
-            rsss = math.sqrt(rA.sigma**2 + rB.sigma**2)
-            _prob = cdf(deltaMu/rsss)
-            print _prob
-            return _prob
         if winner == 0:
             n_sub_1_granular_score, n_sub_2_granular_score = \
                         trueskill.rate_1vs1(
                             granular_submission_1_score,
                             granular_submission_2_score
                             )
-            probability_of_win = Pwin(
-                                granular_submission_1_score,
-                                granular_submission_2_score
-                                )
         else:
             n_sub_2_granular_score, n_sub_1_granular_score = \
                         trueskill.rate_1vs1(
                             granular_submission_2_score,
                             granular_submission_1_score
                             )
-            probability_of_win = Pwin(
-                                granular_submission_1_score,
-                                granular_submission_2_score
-                                )
 
         update_submission_score(submission_1, n_sub_1_score, _idx=submission_1_idx)
         update_submission_score(submission_2, n_sub_2_score, _idx=submission_2_idx)
