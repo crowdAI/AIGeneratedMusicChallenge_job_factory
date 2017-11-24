@@ -163,10 +163,11 @@ def update_submission_score(submission_id, score, _idx=False):
         1
     )
 
+    env = trueskill.global_env()
     if not _idx:
         _payload = {}
-        _payload['score'] = score.mu
-        _payload['score_secondary'] = score.sigma
+        _payload['score'] = env.expose(score)
+        _payload['score_secondary'] = score.mu
         _payload['grading_status'] = 'graded'
         _payload['challenge_client_name'] = config.challenge_id
         _message = "mu: {} ; sigma: {}; comparisons: {}".format(
