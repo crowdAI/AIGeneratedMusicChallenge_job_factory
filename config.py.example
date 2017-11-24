@@ -6,14 +6,25 @@ class Config:
     redis_db = 4
     api_service_port = 9271
     redis_namespace = challenge_id
-    CROWDAI_TOKEN="YOUR-CROWDAI-TOKEN"
-    CROWDAI_GRADER_URL = "CROWDAI-GRADER-URL"
+    CROWDAI_TOKEN="    "
+    CROWDAI_GRADER_URL = " "
 
     AWS_S3_BUCKET = " "
     S3_UPLOAD_PATH = " "
     AWS_ACCESS_KEY_ID = " "
     AWS_SECRET_ACCESS_KEY = " "
+    S3_BASE_URL = " "
 
     TEMP_STORAGE_DIRECTORY_PATH = "temp/"
 
-    DEBUG_MODE=True
+    MIDI_MAX_LENGTH = 3600 # in seconds
+    MIDI_NUM_SPLITS = 120 # 30 seconds x 120 splits = 3600 seconds
+
+    SCORE_DEFAULT = 25
+    SCORE_SECONDARY_DEFAULT = 8.333
+
+    MATCH_EXPIRY = 3600 * 24 #24 hours
+
+    DEBUG_MODE=False
+
+    BANNED_SUBMISSIONS = []

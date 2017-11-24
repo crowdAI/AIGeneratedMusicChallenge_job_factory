@@ -25,7 +25,7 @@ else:
 def _query(s):
     return "{}::{}".format(config.redis_namespace, s)
 
-def get_two_random_submissions(redis_conn):
+def get_two_random_submissions(redis_conn, excluded_submissions=[]):
     submission_ids = redis_conn.hkeys(
         _query("submission_to_key_map"
         ))
@@ -36,9 +36,16 @@ def get_two_random_submissions(redis_conn):
     to obtain two submissions
     """
     random.shuffle(submission_ids)
-    sub_1 = submission_ids[0]
-    sub_2 = submission_ids[1]
+    def get_random_submission(submission_ids):
+        while True:
+            _i = random.randint(0, len(submission_ids)-1)
+            if submission_ids[_i] in excluded_submissions:
+                continue
+            else:
+                return submission_ids[_i]
 
+    sub_1 = get_random_submission(submission_ids)
+    sub_2 = get_random_submission(submission_ids)
     return sub_1, sub_2
 
 def get_random_split_for_submission(redis_conn, submission_id):
