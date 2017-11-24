@@ -39,11 +39,15 @@ def report_to_crowdai(_context, status, _payload):
         submission_id = str(data['submission_id'])
         return submission_id
     else:
-        print r.text
-        print r.status_code
-        raise Exception("""
+		_message = """
             Unable to register submission on crowdAI.
-            Please contact the admins.""")
+            Please contact the admins."""
+		try:
+			response = json.loads(r.text)
+			_message = response['message']
+		except:
+			pass
+		raise Exception(_message)
 
 
 # _context = {}
