@@ -67,7 +67,7 @@ def get_url_for_split(split_rel_path):
 def match():
     redis_conn = redis.Redis(connection_pool=POOL)
     #Obtain list of submission_ids
-    sub_1, sub_2 = get_two_random_submissions(redis_conn, excluded_submission=config.BANNED_SUBMISSIONS)
+    sub_1, sub_2 = get_two_random_submissions(redis_conn, excluded_submissions=config.BANNED_SUBMISSIONS)
     split_1, split_1_idx = get_random_split_for_submission(redis_conn, sub_1)
     split_2, split_2_idx = get_random_split_for_submission(redis_conn, sub_2)
 
