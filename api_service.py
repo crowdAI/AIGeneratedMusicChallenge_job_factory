@@ -266,10 +266,15 @@ def match_result(match_id):
             _query("match::"+match_id)
             )
 
+        ip = False
+        if request.headers.getlist("X-Forwarded-For"):
+            ip = request.headers.getlist("X-Forwarded-For")[0]
+        else:
+            ip = request.remote_addr
         # Add log entry
         _log_entry = {}
         _log_entry['timestamp'] = time.time()
-        _log_entry['remote_addr'] = request.remote_addr
+        _log_entry['remote_addr'] = ip
         _log_entry['submission_1'] = submission_1
         _log_entry['submission_2'] = submission_2
         _log_entry['submission_1_idx'] = submission_1_idx
