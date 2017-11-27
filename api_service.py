@@ -9,6 +9,7 @@ import trueskill
 import requests
 from trueskill.backends import cdf
 import math
+import time
 
 from config import Config as config
 
@@ -91,7 +92,6 @@ def match():
     _response['match_id'] = match_id
     _response['candidate_1'] = split_1
     _response['candidate_2'] = split_2
-
     return jsonify(_response)
 
 def parse_rating(score):
@@ -266,6 +266,19 @@ def match_result(match_id):
             _query("match::"+match_id)
             )
 
+        # Add log entry
+        _log_entry = {}
+        _log_entry['timestamp'] = time.time()
+        _log_entry['remote_addr'] = request.remote_addr
+        _log_entry['submission_1'] = submission_1
+        _log_entry['submission_2'] = submission_2
+        _log_entry['submission_1_idx'] = submission_1_idx
+        _log_entry['submission_2_idx'] = submission_2_idx
+
+        redis_conn.lpush(
+            _query("match_report_logs"),
+            json.dumps(_log_entry)
+        )
         return jsonify(
                     {
                         'result':'SUCCESS',
