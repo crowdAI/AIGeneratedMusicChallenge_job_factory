@@ -39,7 +39,7 @@ def get_two_random_submissions(redis_conn, excluded_submissions=[]):
     def get_random_submission(submission_ids):
         while True:
             _i = random.randint(0, len(submission_ids)-1)
-            if submission_ids[_i] in excluded_submissions:
+            if str(submission_ids[_i]) in excluded_submissions:
                 continue
             else:
                 return submission_ids[_i]
