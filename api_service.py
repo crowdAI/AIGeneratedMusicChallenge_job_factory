@@ -279,6 +279,7 @@ def match_result(match_id):
         _log_entry['submission_2'] = submission_2
         _log_entry['submission_1_idx'] = submission_1_idx
         _log_entry['submission_2_idx'] = submission_2_idx
+        _log_entry['winner'] = winner
 
         redis_conn.lpush(
             _query("match_report_logs"),
