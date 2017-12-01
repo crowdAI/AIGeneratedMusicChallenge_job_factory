@@ -49,19 +49,6 @@ def report_to_crowdai(_context, status, _payload):
 			pass
 		raise Exception(_message)
 
-
-# _context = {}
-# _context["api_key"] = "568dc6090ce53d48f84fd47cbde91e1e"
-# _payload = {}
-# _payload['score'] = 25
-# _payload['score_secondary'] = 8.33
-# submission_id = report_to_crowdai(
-#                 _context,
-#                 'graded',
-#                 _payload
-#                 )
-# print submission_id
-
 def grade_submission(data, _context):
     file_key = data["file_key"]
 
