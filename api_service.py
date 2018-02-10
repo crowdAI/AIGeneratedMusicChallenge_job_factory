@@ -63,6 +63,34 @@ def get_random_split_for_submission(redis_conn, submission_id):
 def get_url_for_split(split_rel_path):
     return "{}{}".format(config.S3_BASE_URL, split_rel_path)
 
+def anonymize_response_candidate(candidate):
+    redis_conn = redis.Redis(connection_pool=POOL)
+    new_internal_id = str(uuid.uuid4())+".json"
+    r = requests.get(candidate)
+    payload = json.loads(r.text)
+    payload["key"] = str(uuid.uuid4())
+
+    redis_conn.set(
+        _query("candidate::"+new_internal_id),
+            json.dumps(
+                payload
+            ),
+        config.MATCH_EXPIRY
+        )
+
+    return "https://grader.crowdai.org/music_candidate/"+new_internal_id
+
+
+@app.route('/music_candidate/<internal_id>')
+def music_candidate(internal_id):
+    redis_conn = redis.Redis(connection_pool=POOL)
+    candidate = redis_conn.get(
+        _query("candidate::"+internal_id)
+    )
+    redis_conn.delete(_query("candidate::"+internal_id))
+    print json.loads(candidate)
+    return jsonify(json.loads(candidate))
+
 @app.route('/match')
 def match():
     redis_conn = redis.Redis(connection_pool=POOL)
@@ -90,8 +118,8 @@ def match():
         config.MATCH_EXPIRY)
     _response = {}
     _response['match_id'] = match_id
-    _response['candidate_1'] = split_1
-    _response['candidate_2'] = split_2
+    _response['candidate_1'] = anonymize_response_candidate(split_1)
+    _response['candidate_2'] = anonymize_response_candidate(split_2)
     return jsonify(_response)
 
 def parse_rating(score):
