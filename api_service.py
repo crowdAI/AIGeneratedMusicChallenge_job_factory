@@ -325,6 +325,22 @@ def match_result(match_id):
     print content
     return jsonify({'match_id': match_id})
 
+def reset_all_scores():
+    redis_conn = redis.Redis(connection_pool=POOL)
+    submission_ids = redis_conn.hkeys(
+        _query("submission_to_key_map"
+        ))
+
+    for sid in submission_ids:
+        print sid
+        score = trueskill.Rating()
+        update_submission_score(sid, score)
+        for k in range(120):
+            print sid, k
+            update_submission_score(sid, score, _idx=k)
+
+
+
 application = app
 if __name__ == '__main__':
     app.run(host='0.0.0.0',
