@@ -37,16 +37,16 @@ def get_two_random_submissions(redis_conn, excluded_submissions=[]):
     to obtain two submissions
     """
     random.shuffle(submission_ids)
-    def get_random_submission(submission_ids):
+    def get_random_submission(submission_ids, _excluded_submissions):
         while True:
             _i = random.randint(0, len(submission_ids)-1)
-            if str(submission_ids[_i]) in excluded_submissions:
+            if str(submission_ids[_i]) in _excluded_submissions:
                 continue
             else:
                 return submission_ids[_i]
 
-    sub_1 = get_random_submission(submission_ids)
-    sub_2 = get_random_submission(submission_ids)
+    sub_1 = get_random_submission(submission_ids, excluded_submissions)
+    sub_2 = get_random_submission(submission_ids, excluded_submissions+[sub_1])
     return sub_1, sub_2
 
 def get_random_split_for_submission(redis_conn, submission_id):
