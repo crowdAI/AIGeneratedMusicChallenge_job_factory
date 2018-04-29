@@ -67,7 +67,7 @@ def grade_submission(data, _context):
     _meta['file_key'] = file_key
     processed_filekeys = converted_filekeys
     _meta['processed_filekeys'] = json.dumps(processed_filekeys)
-    _payload['meta'] = _meta
+    _payload['meta'] = json.dumps(_meta)
     _payload['score'] = config.SCORE_DEFAULT
     _payload['score_secondary'] = config.SCORE_SECONDARY_DEFAULT
 
