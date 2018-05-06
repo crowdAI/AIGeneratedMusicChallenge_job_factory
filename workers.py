@@ -10,6 +10,7 @@ from midi_helpers import post_process_midi, _update_job_event
 from midi_helpers import register_submission_on_redis
 
 import uuid
+from crowdai_api import API as CROWDAI_API
 
 if config.redis_password:
 	POOL = redis.ConnectionPool(
@@ -17,37 +18,6 @@ if config.redis_password:
 else:
 	POOL = redis.ConnectionPool(
 	    host=config.redis_host, port=config.redis_port, db=config.redis_db)
-
-def report_to_crowdai(_context, status, _payload):
-    if config.DEBUG_MODE:
-        return str(uuid.uuid4())
-
-    headers = {
-        'Authorization': 'Token token='+config.CROWDAI_TOKEN,
-        "Content-Type": "application/vnd.api+json"
-        }
-    _payload['challenge_client_name'] = config.challenge_id
-    _payload['api_key'] = _context['api_key']
-    _payload['grading_status'] = status
-    print "Making POST request...."
-    r = requests.post(
-        config.CROWDAI_GRADER_URL,
-        params=_payload, headers=headers, verify=False)
-
-    if r.status_code == 202:
-        data = json.loads(r.text)
-        submission_id = str(data['submission_id'])
-        return submission_id
-    else:
-		_message = """
-            Unable to register submission on crowdAI.
-            Please contact the admins."""
-		try:
-			response = json.loads(r.text)
-			_message = response['message']
-		except:
-			pass
-		raise Exception(_message)
 
 def grade_submission(data, _context):
     file_key = data["file_key"]
@@ -62,20 +32,21 @@ def grade_submission(data, _context):
                                             POOL,
                                             file_key
                                             )
-    _payload = {}
-    _meta = {}
-    _meta['file_key'] = file_key
     processed_filekeys = converted_filekeys
-    _meta['processed_filekeys'] = json.dumps(processed_filekeys)
-    _payload['meta'] = json.dumps(_meta)
-    _payload['score'] = config.SCORE_DEFAULT
-    _payload['score_secondary'] = config.SCORE_SECONDARY_DEFAULT
-
-    submission_id = report_to_crowdai(
-                    _context,
-                    'graded',
-                    _payload
-                    )
+    print("Making submission on crowdAI")    
+    api = CROWDAI_API(config.CROWDAI_TOKEN)
+    api.authenticate_participant(_context["api_key"])    
+    meta = {}
+    meta["file_key"] = file_key
+    #meta["processed_filekeys"] = processed_filekeys
+    submission = api.create_submission(config.challenge_id)
+    submission.score = config.SCORE_DEFAULT
+    submission.score_secondary = config.SCORE_SECONDARY_DEFAULT
+    submission.grading_status = "graded"
+    submission.meta = meta
+    submission.update()
+    submission_id = submission.id
+    print("Submitted : ", submission)
     register_submission_on_redis(
         _context,
         POOL,
@@ -90,7 +61,7 @@ def grade_submission(data, _context):
     Please note that these scores are only the initial scores,
     and they will change over time as your submission is
     evaluated by the human volunteers.
-    """.format(_payload['score'], _payload['score_secondary'])
+    """.format(submission.score, submission.score_secondary)
 
     _update_job_event(
         _context,
@@ -98,8 +69,8 @@ def grade_submission(data, _context):
             _context, message_for_participants))
 
     result = {'result': 'submission recorded'}
-    result['score_mu'] = _payload['score']
-    result['score_sigma'] = _payload['score_secondary']
+    result['score_mu'] = submission.score
+    result['score_sigma'] = submission.score_secondary
     _update_job_event(
         _context,
         job_complete_template(
