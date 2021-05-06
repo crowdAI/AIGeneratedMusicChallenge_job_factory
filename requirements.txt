@@ -9,7 +9,7 @@ click==6.7
 datauri==1.0.0
 docutils==0.14
 Flask==0.12.2
-Flask-Cors==3.0.3
+Flask-Cors==3.0.9
 Flask-Limiter==1.0.0
 Flask-RESTful==0.3.6
 futures==3.1.1
