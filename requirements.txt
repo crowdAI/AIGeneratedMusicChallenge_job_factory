@@ -36,7 +36,7 @@ scipy==0.19.1
 six==1.11.0
 sklearn==0.0
 trueskill==0.4.4
-urllib3==1.21.1
+urllib3==1.26.5
 Werkzeug==0.12.2
 uwsgi==2.0.15
 crowdai-api==0.1.1.dev5
